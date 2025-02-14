@@ -1,0 +1,37 @@
+# ---- Python standard ignores ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+.env
+.venv
+
+# ---- Virtual Environment Folder ----
+venv/
+venv*/  # if you have multiple venvs
+
+# ---- Database Files ----
+*.db
+*.sqlite3
+
+# ---- Config Files with Passwords/Credentials ----
+config.ini
+sql_config.ini
+data/config/*.ini  # If you store your .ini files in data/config
+
+# ---- Image / Media Files ----
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# ---- OS-specific ignores ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs or temp ----
+*.log

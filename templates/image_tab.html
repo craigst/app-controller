@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block title %}Image Mapping{% endblock %}
+{% block content %}
+<h3>Image Mapping</h3>
+
+<!-- Widget 1: Macro Manager -->
+<div class="mb-4 border p-3">
+  <h4>Macro Manager</h4>
+  <div class="form-group">
+    <label>Select Macro:</label>
+    <select id="macroSelect" class="form-control">
+      <option value="">--Select Macro--</option>
+      {% for macro in macro_list %}
+        <option value="{{ macro.name }}">{{ macro.name }} - {{ macro.description }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-2">
+    <button type="button" class="btn btn-info" onclick="submitMacro()">Run Macro</button>
+    <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#editMacroModal">Edit Macro</button>
+    <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#addMacroModal">Add Macro</button>
+  </div>
+</div>
+
+<!-- Widget 2: Guided Macro Creator -->
+<div class="mb-4 border p-3">
+  <h4>Guided Macro Creator</h4>
+  <button type="button" class="btn btn-info" data-toggle="modal" data-target="#guidedMacroModal">
+    Start Guided Macro Creator
+  </button>
+</div>
+
+<!-- Widget 3: Upload Screenshot -->
+<div class="mb-4 border p-3">
+  <h4>Upload Screenshot</h4>
+  <form method="POST" action="{{ url_for('image_tab') }}" enctype="multipart/form-data">
+    <div class="form-group">
+      <input type="file" name="screenshot" class="form-control-file">
+    </div>
+    <button type="submit" class="btn btn-primary">Upload</button>
+  </form>
+</div>
+
+<!-- Hidden form for running macros (Macro Manager) -->
+<form id="macroForm" method="POST" action="{{ url_for('run_macro') }}">
+  <input type="hidden" name="macro_name" id="macroNameInput">
+</form>
+
+<!-- Edit Macro Modal -->
+<div class="modal fade" id="editMacroModal" tabindex="-1" role="dialog" aria-labelledby="editMacroModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form method="POST" action="{{ url_for('edit_macro') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editMacroModalLabel">Edit Macro</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="console.log('Edit modal closed')">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Dropdown to select macro to edit -->
+          <div class="form-group">
+            <label>Select Macro to Edit:</label>
+            <select id="editMacroSelect" class="form-control">
+              <option value="">--Select Macro--</option>
+              {% for macro in macro_list %}
+                <option value="{{ macro.name }}">{{ macro.name }} - {{ macro.description }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline-info mb-3" onclick="loadSelectedMacro()">Load Macro</button>
+          <!-- Hidden field for original macro name -->
+          <input type="hidden" name="old_macro_name" id="oldMacroName">
+          <div class="form-group">
+            <label>Macro Name:</label>
+            <input type="text" name="macro_name" id="editMacroName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Description:</label>
+            <input type="text" name="macro_description" id="editMacroDescription" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Commands (one per line):</label>
+            <textarea name="macro_commands" id="editMacroCommands" class="form-control" rows="4" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" name="action_type" value="save" class="btn btn-primary">Save Changes</button>
+          <button type="submit" name="action_type" value="delete" class="btn btn-danger">Delete Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Macro Modal -->
+<div class="modal fade" id="addMacroModal" tabindex="-1" role="dialog" aria-labelledby="addMacroModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form method="POST" action="{{ url_for('add_macro') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addMacroModalLabel">Add New Macro</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Macro Name:</label>
+            <input type="text" name="macro_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Description:</label>
+            <input type="text" name="macro_description" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Commands (one per line, e.g., "sleep 1"):</label>
+            <textarea name="macro_commands" class="form-control" rows="4" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Guided Macro Modal -->
+<div class="modal fade" id="guidedMacroModal" tabindex="-1" role="dialog" aria-labelledby="guidedMacroModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <form id="guidedMacroForm" method="POST" action="{{ url_for('add_macro') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="guidedMacroModalLabel">Guided Macro Creator</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="resetGuidedMacro()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Two-column layout -->
+          <div class="row">
+            <!-- Left Column: Small Screenshot Thumbnail -->
+            <div class="col-md-4">
+              <h5>Screenshot</h5>
+              {% if latest %}
+                <img id="guidedImage" src="{{ url_for('mapped_image', filename=latest) }}?t={{ new_timestamp }}" alt="Screenshot" class="img-fluid" style="cursor: pointer;">
+              {% else %}
+                <p>No screenshot available.</p>
+              {% endif %}
+            </div>
+            <!-- Right Column: Macro Details & Actions -->
+            <div class="col-md-8">
+              <div class="form-group">
+                <label>Macro Name:</label>
+                <input type="text" name="macro_name" id="guidedMacroName" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label>Description:</label>
+                <input type="text" name="macro_description" id="guidedMacroDescription" class="form-control">
+              </div>
+              <!-- Action Buttons -->
+              <div class="btn-group mb-2" role="group">
+                <button type="button" class="btn btn-outline-primary" onclick="prepareGuidedTap()">Add Tap</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="prepareGuidedSwipe()">Add Swipe</button>
+                <button type="button" class="btn btn-outline-success" onclick="prepareGuidedSleep()">Add Sleep</button>
+                <button type="button" class="btn btn-outline-danger" onclick="resetGuidedActions()">Reset Actions</button>
+              </div>
+              <!-- List of commands with delete icons -->
+              <ul id="guidedCommandList" class="list-group" style="max-height:200px; overflow-y:auto;"></ul>
+            </div>
+          </div>
+          <!-- Hidden textarea for commands -->
+          <textarea name="macro_commands" id="guidedMacroCommands" style="display:none;"></textarea>
+          <div id="guidedInstruction" class="mt-3 text-primary"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="resetGuidedMacro()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Hidden form for running macros -->
+<form id="macroForm" method="POST" action="{{ url_for('run_macro') }}">
+  <input type="hidden" name="macro_name" id="macroNameInput">
+</form>
+
+<script>
+// Macro Manager Functions
+function submitAction(action) {
+  document.getElementById("actionInput").value = action;
+  document.getElementById("adbForm").submit();
+}
+
+function submitLogin() {
+  var userSelect = document.getElementById("savedUser").value;
+  document.getElementById("actionInput").value = "login";
+  document.getElementById("userSelectInput").value = userSelect;
+  document.getElementById("adbForm").submit();
+}
+
+function submitMacro() {
+  var macroName = document.getElementById("macroSelect").value;
+  if(macroName === ""){
+    alert("Please select a macro to run.");
+    return;
+  }
+  document.getElementById("macroNameInput").value = macroName;
+  document.getElementById("macroForm").submit();
+}
+
+function loadSelectedMacro() {
+  var selectedMacroName = document.getElementById("editMacroSelect").value;
+  if (!selectedMacroName) {
+    alert("Please select a macro to load.");
+    return;
+  }
+  var macros = {{ macro_list|tojson|safe }};
+  var macro = macros.find(function(m) { return m.name === selectedMacroName; });
+  if(macro) {
+    document.getElementById("oldMacroName").value = macro.name;
+    document.getElementById("editMacroName").value = macro.name;
+    document.getElementById("editMacroDescription").value = macro.description;
+    document.getElementById("editMacroCommands").value = macro.commands;
+    console.log("Loaded macro for editing:", macro);
+  } else {
+    alert("Macro not found.");
+  }
+}
+
+// Guided Macro Creator Functions
+var guidedMode = null; // "tap", "swipe", "sleep"
+var guidedSwipeStart = null;
+var guidedCommands = []; // holds commands
+
+function resetGuidedMacro() {
+  guidedMode = null;
+  guidedSwipeStart = null;
+  guidedCommands = [];
+  document.getElementById("guidedMacroName").value = "";
+  document.getElementById("guidedMacroDescription").value = "";
+  document.getElementById("guidedMacroCommands").value = "";
+  updateGuidedCommandList();
+  document.getElementById("guidedInstruction").innerText = "";
+}
+
+function resetGuidedActions() {
+  guidedMode = null;
+  guidedSwipeStart = null;
+  guidedCommands = [];
+  updateGuidedCommandList();
+  document.getElementById("guidedInstruction").innerText = "Actions reset.";
+}
+
+function updateGuidedCommandList() {
+  var list = document.getElementById("guidedCommandList");
+  list.innerHTML = "";
+  guidedCommands.forEach(function(cmd, index) {
+    var li = document.createElement("li");
+    li.className = "list-group-item d-flex justify-content-between align-items-center";
+    li.innerText = cmd;
+    var delBtn = document.createElement("button");
+    delBtn.className = "btn btn-sm btn-danger";
+    delBtn.innerText = "X";
+    delBtn.onclick = function() { removeGuidedCommand(index); };
+    li.appendChild(delBtn);
+    list.appendChild(li);
+  });
+  document.getElementById("guidedMacroCommands").value = guidedCommands.join("\n");
+}
+
+function addGuidedCommand(cmd) {
+  guidedCommands.push(cmd);
+  updateGuidedCommandList();
+}
+
+function removeGuidedCommand(index) {
+  guidedCommands.splice(index, 1);
+  updateGuidedCommandList();
+}
+
+function prepareGuidedTap() {
+  guidedMode = "tap";
+  document.getElementById("guidedInstruction").innerText = "Click on the image where you want to tap.";
+}
+
+function prepareGuidedSleep() {
+  guidedMode = "sleep";
+  var seconds = prompt("Enter sleep duration in seconds:");
+  if(seconds !== null && seconds.trim() !== "") {
+    seconds = Math.round(parseFloat(seconds));
+    addGuidedCommand("sleep " + seconds);
+    document.getElementById("guidedInstruction").innerText = "Sleep command added.";
+    guidedMode = null;
+  } else {
+    document.getElementById("guidedInstruction").innerText = "Sleep command canceled.";
+    guidedMode = null;
+  }
+}
+
+function prepareGuidedSwipe() {
+  guidedMode = "swipe";
+  guidedSwipeStart = null;
+  document.getElementById("guidedInstruction").innerText = "Click on the image for the swipe start point.";
+}
+
+function refreshGuidedImage() {
+  var img = document.getElementById("guidedImage");
+  if(img) {
+    img.src = img.src.split('?')[0] + "?t=" + new Date().getTime();
+  }
+}
+
+if(document.getElementById("guidedImage")){
+  document.getElementById("guidedImage").addEventListener("click", function(event) {
+    if(!guidedMode) return;
+    var rect = this.getBoundingClientRect();
+    var x = Math.round(event.clientX - rect.left);
+    var y = Math.round(event.clientY - rect.top);
+    if(guidedMode === "tap") {
+      var cmd = "adb shell input tap " + x + " " + y;
+      addGuidedCommand(cmd);
+      document.getElementById("guidedInstruction").innerText = "Tap command added.";
+      guidedMode = null;
+      // Wait 2 seconds and refresh the image.
+      setTimeout(refreshGuidedImage, 2000);
+    } else if(guidedMode === "swipe") {
+      if(guidedSwipeStart === null) {
+        guidedSwipeStart = { x: x, y: y };
+        document.getElementById("guidedInstruction").innerText = "Swipe start recorded. Click for swipe end point.";
+      } else {
+        var cmd = "adb shell input swipe " + guidedSwipeStart.x + " " + guidedSwipeStart.y + " " + x + " " + y + " 500";
+        addGuidedCommand(cmd);
+        document.getElementById("guidedInstruction").innerText = "Swipe command added.";
+        guidedMode = null;
+        guidedSwipeStart = null;
+        setTimeout(refreshGuidedImage, 2000);
+      }
+    }
+  });
+}
+</script>
+{% endblock %}
