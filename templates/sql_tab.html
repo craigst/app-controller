@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}SQL Sync{% endblock %}
+{% block content %}
+<h3>SQL Sync</h3>
+<form method="POST" action="{{ url_for('sql_tab') }}">
+  <div class="form-group">
+    <label>PostgreSQL Host:</label>
+    <input type="text" name="pg_host" class="form-control" value="{{ sql_conf.PG_HOST }}">
+  </div>
+  <div class="form-group">
+    <label>Port:</label>
+    <input type="text" name="pg_port" class="form-control" value="{{ sql_conf.PG_PORT }}">
+  </div>
+  <div class="form-group">
+    <label>Database Name:</label>
+    <input type="text" name="pg_database" class="form-control" value="{{ sql_conf.PG_DATABASE }}">
+  </div>
+  <div class="form-group">
+    <label>Username:</label>
+    <input type="text" name="pg_username" class="form-control" value="{{ sql_conf.PG_USERNAME }}">
+  </div>
+  <div class="form-group">
+    <label>Password:</label>
+    <input type="password" name="pg_password" class="form-control" value="{{ sql_conf.PG_PASSWORD }}">
+  </div>
+  <div class="form-group">
+    <button name="action" value="test" class="btn btn-primary">Test Connection</button>
+    <button name="action" value="sync" class="btn btn-success">Sync to PostgreSQL</button>
+  </div>
+  <hr>
+  <h4>Autosync Settings</h4>
+  <div class="form-group form-check">
+    <input type="checkbox" class="form-check-input" id="autosync" name="autosync" {% if autosync_enabled %}checked{% endif %}>
+    <label class="form-check-label" for="autosync">Enable Autosync</label>
+  </div>
+  <div class="form-group">
+    <label>Sync Interval (minutes):</label>
+    <input type="number" name="interval" class="form-control" value="{{ autosync_interval }}">
+  </div>
+  <button name="action" value="autosync" class="btn btn-info">Save Autosync Settings</button>
+</form>
+{% endblock %}

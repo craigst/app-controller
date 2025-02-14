@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Database Manager{% endblock %}
+{% block content %}
+<h3>Database Manager</h3>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <form method="POST" action="{{ url_for('pull_db') }}">
+    <button type="submit" class="btn btn-info">Pull Database from Device</button>
+  </form>
+  <div>
+    <strong>Last Pulled:</strong> {{ last_pull }}
+  </div>
+</div>
+<form method="POST" action="{{ url_for('db_tab') }}">
+  <div class="form-group">
+    <label>Backup Note (optional):</label>
+    <input type="text" name="note" class="form-control">
+  </div>
+  <button name="action" value="backup" class="btn btn-primary">Backup Now</button>
+</form>
+<hr>
+<h4>Existing Backups:</h4>
+{% if backups %}
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Timestamp</th>
+        <th>Note</th>
+        <th>Filename</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in backups %}
+        <tr>
+          <td>{{ b[0] }}</td>
+          <td>{{ b[1] }}</td>
+          <td>{{ b[2] }}</td>
+          <td>{{ b[3] }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('delete_backup', backup_id=b[0]) }}" style="display:inline;">
+              <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No backups found.</p>
+{% endif %}
+{% endblock %}

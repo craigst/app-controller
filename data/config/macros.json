@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Biometrics NAG",
+    "description": "nag screen click remind later",
+    "commands": "adb shell input tap 702 2945"
+  },
+  {
+    "name": "Nag1",
+    "description": "first nag after fresh log in (guide)",
+    "commands": "adb shell input swipe 540 2700 540 800 500\r\nsleep 2\r\nadb shell input tap 702 2684"
+  },
+  {
+    "name": "Logout",
+    "description": "Log out from app click log out home screen",
+    "commands": "adb shell input tap 918 2254"
+  },
+  {
+    "name": "No entries found",
+    "description": "No entries found ok button",
+    "commands": "adb shell input tap 116 248"
+  }
+]

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}ADB Control{% endblock %}
+{% block content %}
+<h3>ADB Control</h3>
+
+<!-- App Control Button Group -->
+<div class="mb-3">
+  <div class="btn-group" role="group">
+    <button type="button" class="btn btn-primary" onclick="submitAction('install')">Install App</button>
+    <button type="button" class="btn btn-success" onclick="submitAction('start')">Start App</button>
+    <button type="button" class="btn btn-warning" onclick="submitAction('stop')">Stop App</button>
+    <button type="button" class="btn btn-info" onclick="submitAction('restart')">Restart App</button>
+    <button type="button" class="btn btn-danger" onclick="submitAction('uninstall')">Uninstall App</button>
+    <button type="button" class="btn btn-secondary" onclick="submitAction('capture')">Capture Screenshot</button>
+  </div>
+</div>
+
+<!-- Hidden form for app actions -->
+<form id="adbForm" method="POST" action="{{ url_for('adb_tab') }}">
+  <input type="hidden" name="action" id="actionInput">
+  <input type="hidden" name="user_select" id="userSelectInput" value="">
+</form>
+
+<!-- Login Macro Section (Saved Users Only) -->
+<div class="mb-3">
+  <h4>Login Macro</h4>
+  <div class="form-group">
+    <label>Select Saved User:</label>
+    <select id="savedUser" class="form-control">
+      <option value="">--Select User--</option>
+      {% for user in users %}
+        <option value="{{ user.username }}">{{ user.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="button" class="btn btn-info" onclick="submitLogin()">Run Login Macro</button>
+  <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#addUserModal" onclick="console.log('Add User button clicked')">Add User</button>
+</div>
+
+<!-- Macro Manager Section -->
+<div class="mb-3">
+  <h4>Macros</h4>
+  <div class="form-group">
+    <label>Select Macro:</label>
+    <select id="macroSelect" class="form-control">
+      <option value="">--Select Macro--</option>
+      {% for macro in macro_list %}
+        <option value="{{ macro.name }}">{{ macro.name }} - {{ macro.description }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="button" class="btn btn-info" onclick="submitMacro()">Run Macro</button>
+  <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#editMacroModal" onclick="console.log('Edit Macro button clicked')">Edit Macro</button>
+  <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#addMacroModal" onclick="console.log('Add Macro button clicked')">Add Macro</button>
+</div>
+
+<!-- Modals are placed inside content block so they're rendered -->
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" role="dialog" aria-labelledby="addUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form method="POST" action="{{ url_for('add_user') }}" onsubmit="console.log('Submitting Add User form');">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addUserModalLabel">Add New User</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="console.log('Closing Add User modal');">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Username:</label>
+            <input type="text" name="new_username" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Password:</label>
+            <input type="password" name="new_password" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save User</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Macro Modal -->
+<div class="modal fade" id="addMacroModal" tabindex="-1" role="dialog" aria-labelledby="addMacroModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form method="POST" action="{{ url_for('add_macro') }}" onsubmit="console.log('Submitting Add Macro form');">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addMacroModalLabel">Add New Macro</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="console.log('Closing Add Macro modal');">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Macro Name:</label>
+            <input type="text" name="macro_name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Description:</label>
+            <input type="text" name="macro_description" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Commands (one per line, e.g., "sleep 1"):</label>
+            <textarea name="macro_commands" class="form-control" rows="4" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Macro Modal -->
+<div class="modal fade" id="editMacroModal" tabindex="-1" role="dialog" aria-labelledby="editMacroModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form method="POST" action="{{ url_for('edit_macro') }}" onsubmit="console.log('Submitting Edit Macro form');">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editMacroModalLabel">Edit Macro</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="console.log('Closing Edit Macro modal');">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Dropdown to select macro to edit -->
+          <div class="form-group">
+            <label>Select Macro to Edit:</label>
+            <select id="editMacroSelect" class="form-control">
+              <option value="">--Select Macro--</option>
+              {% for macro in macro_list %}
+                <option value="{{ macro.name }}">{{ macro.name }} - {{ macro.description }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline-info mb-3" onclick="loadSelectedMacro()">Load Macro</button>
+          <!-- Hidden field for original macro name -->
+          <input type="hidden" name="old_macro_name" id="oldMacroName">
+          <div class="form-group">
+            <label>Macro Name:</label>
+            <input type="text" name="macro_name" id="editMacroName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Description:</label>
+            <input type="text" name="macro_description" id="editMacroDescription" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Commands (one per line):</label>
+            <textarea name="macro_commands" id="editMacroCommands" class="form-control" rows="4" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" name="action_type" value="save" class="btn btn-primary">Save Changes</button>
+          <button type="submit" name="action_type" value="delete" class="btn btn-danger">Delete Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Macro Manager Functions
+  function submitAction(action) {
+    console.log("submitAction called with:", action);
+    document.getElementById("actionInput").value = action;
+    document.getElementById("adbForm").submit();
+  }
+  function submitLogin() {
+    var userSelect = document.getElementById("savedUser").value;
+    console.log("submitLogin called with:", userSelect);
+    document.getElementById("actionInput").value = "login";
+    document.getElementById("userSelectInput").value = userSelect;
+    document.getElementById("adbForm").submit();
+  }
+  function submitMacro() {
+    var macroName = document.getElementById("macroSelect").value;
+    console.log("submitMacro called with:", macroName);
+    if(macroName === ""){
+      alert("Please select a macro to run.");
+      return;
+    }
+    document.getElementById("macroNameInput").value = macroName;
+    document.getElementById("macroForm").submit();
+  }
+  function loadSelectedMacro() {
+    var selectedMacroName = document.getElementById("editMacroSelect").value;
+    console.log("loadSelectedMacro called with:", selectedMacroName);
+    if (!selectedMacroName) {
+      alert("Please select a macro to load.");
+      return;
+    }
+    var macros = {{ macro_list|tojson|safe }};
+    var macro = macros.find(function(m) { return m.name === selectedMacroName; });
+    if(macro){
+      document.getElementById("oldMacroName").value = macro.name;
+      document.getElementById("editMacroName").value = macro.name;
+      document.getElementById("editMacroDescription").value = macro.description;
+      document.getElementById("editMacroCommands").value = macro.commands;
+      console.log("Loaded macro for editing:", macro);
+    } else {
+      alert("Macro not found.");
+    }
+  }
+</script>
+{% endblock %}
