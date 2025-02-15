@@ -11,6 +11,8 @@ import image_mapping
 import db_manager
 import user_manager
 import load_manager
+import cv_manager  # import your new module
+from datetime import datetime
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -283,6 +285,43 @@ def delete_backup(backup_id):
         if conn:
             conn.close()
     return redirect(url_for("db_tab"))
+
+@app.route("/cv", methods=["GET", "POST"])
+def cv_tab():
+    # You can trigger a one-time screenshot by using a query parameter "get_screenshot"
+    latest = None
+    if request.method == "GET" and request.args.get("get_screenshot"):
+        latest = cv_manager.take_screenshot_cv()
+    # Run template matching if we have a screenshot:
+    matches = {}
+    if latest:
+        matches = cv_manager.match_templates(latest)
+    new_timestamp = datetime.now().timestamp()
+    # Render your new CV template (cv_tab.html)
+    return render_template("cv_tab.html", mode=cv_manager.get_mode(), latest=latest, matches=matches, new_timestamp=new_timestamp)
+
+@app.route("/crop_template", methods=["POST"])
+def crop_template_endpoint():
+    x = int(request.form.get("x"))
+    y = int(request.form.get("y"))
+    w = int(request.form.get("w"))
+    h = int(request.form.get("h"))
+    template_name = request.form.get("template_name")
+    # Optionally, you might want to ensure the template name ends with .jpg
+    if not template_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+        template_name += ".jpg"
+    # Use the current screenshot as the source
+    # For example, assume you have a function in cv_manager to get the latest screenshot
+    screenshot = cv_manager.take_screenshot_cv()
+    if not screenshot:
+        flash("Failed to get screenshot for cropping.")
+        return redirect(url_for("cv_tab"))
+    result = cv_manager.crop_template(screenshot, x, y, w, h, template_name)
+    if result:
+        flash(f"Template {template_name} saved.")
+    else:
+        flash("Failed to crop and save template.")
+    return redirect(url_for("cv_tab"))
 
 
 threading.Thread(target=autosync_thread, daemon=True).start()

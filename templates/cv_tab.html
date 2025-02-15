@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Computer Vision{% endblock %}
+{% block content %}
+<h3>Computer Vision - Template Matching</h3>
+
+<!-- Mode Indicator -->
+<p>Current CV Mode: 
+  {% if mode == 1 %}
+    <span style="color: red;">Active (1 sec updates)</span>
+  {% elif mode == 2 %}
+    <span style="color: orange;">Update Mode (10 min–1 hr)</span>
+  {% elif mode == 3 %}
+    <span style="color: green;">Off</span>
+  {% endif %}
+</p>
+
+<!-- Button to take a one-time screenshot -->
+<form method="GET" action="{{ url_for('cv_tab') }}">
+  <input type="hidden" name="get_screenshot" value="1">
+  <button type="submit" class="btn btn-primary">Get Latest Screenshot</button>
+</form>
+
+{% if latest %}
+  <h4>Latest Screenshot:</h4>
+  <img id="cvScreenshot" src="{{ url_for('mapped_image', filename=latest) }}?t={{ new_timestamp }}" alt="Latest Screenshot" class="img-fluid" style="max-width:400px; cursor:pointer;">
+{% endif %}
+
+{% if matches %}
+  <h4>Matched Templates</h4>
+  <ul class="list-group">
+    {% for template, match in matches.items() %}
+      {% if match %}
+        <li class="list-group-item">
+          {{ template }} - MATCHED
+          <!-- Optionally add a button to view/edit the template -->
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTemplateModal('{{ template }}')">Edit</button>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<!-- Modal for cropping a template from the screenshot -->
+<div class="modal fade" id="templateModal" tabindex="-1" role="dialog" aria-labelledby="templateModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <form id="cropTemplateForm" method="POST" action="{{ url_for('crop_template') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="templateModalLabel">Crop & Save Template</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeTemplateModal()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Click and drag on the screenshot to select the area for your template.</p>
+          <!-- Display the screenshot in a canvas so you can capture coordinates -->
+          <canvas id="cropCanvas" style="border:1px solid #ccc; width:100%; max-width:600px;"></canvas>
+          <input type="hidden" name="x" id="cropX">
+          <input type="hidden" name="y" id="cropY">
+          <input type="hidden" name="w" id="cropW">
+          <input type="hidden" name="h" id="cropH">
+          <div class="form-group mt-2">
+            <label>Template Name:</label>
+            <input type="text" name="template_name" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Template</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeTemplateModal()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // When the screenshot is clicked, open the cropping modal and load the screenshot into a canvas.
+  document.getElementById("cvScreenshot") && document.getElementById("cvScreenshot").addEventListener("click", function(){
+    var img = this;
+    var canvas = document.getElementById("cropCanvas");
+    var ctx = canvas.getContext("2d");
+    // Create an offscreen image to get natural dimensions
+    var offImg = new Image();
+    offImg.src = img.src.split('?')[0];
+    offImg.onload = function(){
+      // Set canvas size to natural size (or scaled to a maximum width for usability)
+      var maxWidth = 600;
+      var scale = offImg.naturalWidth > maxWidth ? maxWidth / offImg.naturalWidth : 1;
+      canvas.width = offImg.naturalWidth * scale;
+      canvas.height = offImg.naturalHeight * scale;
+      ctx.drawImage(offImg, 0, 0, canvas.width, canvas.height);
+      // Initialize variables for cropping
+      let startX, startY, isDrawing = false;
+      canvas.onmousedown = function(e) {
+        var rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        isDrawing = true;
+      };
+      canvas.onmousemove = function(e) {
+        if (!isDrawing) return;
+        var rect = canvas.getBoundingClientRect();
+        var mouseX = e.clientX - rect.left;
+        var mouseY = e.clientY - rect.top;
+        var width = mouseX - startX;
+        var height = mouseY - startY;
+        // Redraw image and the rectangle overlay
+        ctx.drawImage(offImg, 0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startX, startY, width, height);
+      };
+      canvas.onmouseup = function(e) {
+        isDrawing = false;
+        var rect = canvas.getBoundingClientRect();
+        var endX = e.clientX - rect.left;
+        var endY = e.clientY - rect.top;
+        var cropX = Math.round(startX / scale);
+        var cropY = Math.round(startY / scale);
+        var cropW = Math.round((endX - startX) / scale);
+        var cropH = Math.round((endY - startY) / scale);
+        document.getElementById("cropX").value = cropX;
+        document.getElementById("cropY").value = cropY;
+        document.getElementById("cropW").value = cropW;
+        document.getElementById("cropH").value = cropH;
+        console.log("Crop coordinates:", cropX, cropY, cropW, cropH);
+      };
+    };
+    $("#templateModal").modal("show");
+  });
+
+  function closeTemplateModal() {
+    $("#templateModal").modal("hide");
+  }
+</script>
+{% endblock %}

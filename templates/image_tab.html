@@ -316,27 +316,39 @@ function refreshGuidedImage() {
   }
 }
 
-if(document.getElementById("guidedImage")){
-  document.getElementById("guidedImage").addEventListener("click", function(event) {
-    if(!guidedMode) return;
+if (document.getElementById("guidedImage")) {
+  document.getElementById("guidedImage").addEventListener("click", function (event) {
+    if (!guidedMode) return;
+    // Get the image's bounding rectangle.
     var rect = this.getBoundingClientRect();
-    var x = Math.round(event.clientX - rect.left);
-    var y = Math.round(event.clientY - rect.top);
-    if(guidedMode === "tap") {
+    // Get displayed dimensions.
+    var displayedWidth = rect.width;
+    var displayedHeight = rect.height;
+    // Get the original image dimensions.
+    var naturalWidth = this.naturalWidth;
+    var naturalHeight = this.naturalHeight;
+    // Compute scale factors.
+    var scaleX = naturalWidth / displayedWidth;
+    var scaleY = naturalHeight / displayedHeight;
+    // Compute coordinates relative to the original image.
+    var x = Math.round((event.clientX - rect.left) * scaleX);
+    var y = Math.round((event.clientY - rect.top) * scaleY);
+
+    if (guidedMode === "tap") {
       var cmd = "adb shell input tap " + x + " " + y;
       addGuidedCommand(cmd);
-      document.getElementById("guidedInstruction").innerText = "Tap command added.";
+      document.getElementById("guidedInstruction").innerText = "Tap command added (" + x + ", " + y + ").";
       guidedMode = null;
       // Wait 2 seconds and refresh the image.
       setTimeout(refreshGuidedImage, 2000);
-    } else if(guidedMode === "swipe") {
-      if(guidedSwipeStart === null) {
+    } else if (guidedMode === "swipe") {
+      if (guidedSwipeStart === null) {
         guidedSwipeStart = { x: x, y: y };
-        document.getElementById("guidedInstruction").innerText = "Swipe start recorded. Click for swipe end point.";
+        document.getElementById("guidedInstruction").innerText = "Swipe start recorded (" + x + ", " + y + "). Click for swipe end point.";
       } else {
         var cmd = "adb shell input swipe " + guidedSwipeStart.x + " " + guidedSwipeStart.y + " " + x + " " + y + " 500";
         addGuidedCommand(cmd);
-        document.getElementById("guidedInstruction").innerText = "Swipe command added.";
+        document.getElementById("guidedInstruction").innerText = "Swipe command added (" + guidedSwipeStart.x + ", " + guidedSwipeStart.y + " to " + x + ", " + y + ").";
         guidedMode = null;
         guidedSwipeStart = null;
         setTimeout(refreshGuidedImage, 2000);
@@ -344,5 +356,6 @@ if(document.getElementById("guidedImage")){
     }
   });
 }
+
 </script>
 {% endblock %}
