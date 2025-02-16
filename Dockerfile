@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     android-tools-adb \
     android-tools-fastboot \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/
