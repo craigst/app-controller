@@ -50,8 +50,11 @@
     <li class="nav-item">
       <a class="nav-link {% if tab=='loads' %}active{% endif %}" href="{{ url_for('loads_tab') }}">Loads</a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if tab=='cv' %}active{% endif %}" href="{{ url_for('cv_tab') }}">CV</a>
+    </li>
   </ul>
-  
+    
   <div id="status_bar">
     <span id="status_text">Loading status...</span>
   </div>
@@ -96,26 +99,47 @@
 <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-<!-- Global preview update and modal functions -->
+
 <script>
   function updateStatus() {
+    console.log("updateStatus called");
     fetch("{{ url_for('status') }}")
-      .then(response => response.json())
+      .then(response => {
+         console.log("Status response:", response);
+         return response.json();
+      })
       .then(data => {
+         console.log("Status JSON:", data);
          let statusHtml = "";
          statusHtml += "<span class='status-item'>ADB: " + (data.adb_installed ? "🟢" : "🔴") + "</span>";
          statusHtml += "<span class='status-item'>Phone: " + (data.phone_online ? "🟢" : "🔴") + "</span>";
          statusHtml += "<span class='status-item'>App: " + (data.app_installed ? "✅" : "❌") + " / " + (data.app_running ? "🟢" : "🔴") + "</span>";
          statusHtml += "<span class='status-item'>SQL: " + (data.sql_online ? "✅" : "❌") + "</span>";
          statusHtml += "<span class='status-item'>Autosync: " + (data.autosync_enabled ? "🟢 (" + data.autosync_interval + " min)" : "🔴") + "</span>";
+
+         let cvDot;
+         if(data.cv_mode == 1) {
+             cvDot = "🔴"; // Active mode
+         } else if(data.cv_mode == 2) {
+             cvDot = "🟠"; // Update mode
+         } else if(data.cv_mode == 3) {
+             cvDot = "🟢"; // Off
+         } else {
+             cvDot = "⚪"; // Unknown
+         }
+         statusHtml += "<span class='status-item'>CV Mode: " + cvDot + "</span>";
+         
          document.getElementById("status_text").innerHTML = statusHtml;
+         console.log("Updated status_text:", statusHtml);
       })
       .catch(err => {
+         console.error("Error fetching status:", err);
          document.getElementById("status_text").innerText = "Error retrieving status";
       });
   }
   updateStatus();
   setInterval(updateStatus, 60000);
+
 
   function updateGlobalPreview() {
     fetch("{{ url_for('latest_image') }}")

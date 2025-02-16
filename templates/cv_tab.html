@@ -3,44 +3,100 @@
 {% block content %}
 <h3>Computer Vision - Template Matching</h3>
 
-<!-- Mode Indicator -->
-<p>Current CV Mode: 
-  {% if mode == 1 %}
-    <span style="color: red;">Active (1 sec updates)</span>
-  {% elif mode == 2 %}
-    <span style="color: orange;">Update Mode (10 min–1 hr)</span>
-  {% elif mode == 3 %}
-    <span style="color: green;">Off</span>
+<!-- CV Mode Indicator and Mode Switching -->
+<div class="mb-3">
+  <p>Current CV Mode: 
+    {% if mode == 1 %}
+      <span style="color: red;">Active (5 sec updates)</span>
+    {% elif mode == 2 %}
+      <span style="color: orange;">Update Mode (<span id="updateIntervalLabel">{{ update_interval|default(60) }}</span> sec updates)</span>
+    {% elif mode == 3 %}
+      <span style="color: green;">Off</span>
+    {% else %}
+      <span>Unknown</span>
+    {% endif %}
+  </p>
+  <div class="btn-group" role="group">
+    <button type="button" class="btn btn-danger" onclick="setCVMode(1)">Active Mode</button>
+    <button type="button" class="btn btn-warning" onclick="setCVMode(2)">Update Mode</button>
+    <button type="button" class="btn btn-success" onclick="setCVMode(3)">Off</button>
+  </div>
+  {% if mode == 2 %}
+    <div class="mt-2">
+      <label for="updateInterval">Update Interval (seconds):</label>
+      <input type="number" id="updateInterval" value="{{ update_interval|default(60) }}" min="10" style="width:80px;" onchange="document.getElementById('updateIntervalLabel').textContent=this.value">
+    </div>
   {% endif %}
-</p>
+</div>
 
-<!-- Button to take a one-time screenshot -->
-<form method="GET" action="{{ url_for('cv_tab') }}">
-  <input type="hidden" name="get_screenshot" value="1">
-  <button type="submit" class="btn btn-primary">Get Latest Screenshot</button>
-</form>
+<!-- One-Time Screenshot Capture -->
+<div class="mb-3">
+  <form method="GET" action="{{ url_for('cv_tab') }}">
+    <input type="hidden" name="get_screenshot" value="1">
+    <button type="submit" class="btn btn-primary">Get Latest Screenshot</button>
+  </form>
+</div>
 
+<!-- Latest Screenshot Preview -->
 {% if latest %}
-  <h4>Latest Screenshot:</h4>
-  <img id="cvScreenshot" src="{{ url_for('mapped_image', filename=latest) }}?t={{ new_timestamp }}" alt="Latest Screenshot" class="img-fluid" style="max-width:400px; cursor:pointer;">
+  <div class="mb-3">
+    <h4>Latest Screenshot:</h4>
+    <img id="cvScreenshot" src="{{ url_for('mapped_image', filename=latest) }}?t={{ new_timestamp }}" alt="Latest Screenshot" class="img-fluid" style="max-width:400px; cursor:pointer;">
+    <p class="mt-2">Click the screenshot to crop a template.</p>
+  </div>
+{% else %}
+  <p>No screenshot available.</p>
 {% endif %}
 
-{% if matches %}
-  <h4>Matched Templates</h4>
-  <ul class="list-group">
-    {% for template, match in matches.items() %}
-      {% if match %}
-        <li class="list-group-item">
-          {{ template }} - MATCHED
-          <!-- Optionally add a button to view/edit the template -->
-          <button type="button" class="btn btn-sm btn-outline-primary" onclick="openTemplateModal('{{ template }}')">Edit</button>
-        </li>
-      {% endif %}
+<!-- Matched Templates Section (to be updated via AJAX in active mode) -->
+<div class="mb-3" id="matchedTemplatesSection">
+  {% if matches %}
+    <h4>Matched Templates</h4>
+    <div class="row">
+      {% for template, is_matched in matches.items() %}
+        {% if is_matched %}
+          <div class="col-md-3">
+            <div class="card mb-3">
+              <img src="{{ url_for('mapped_image', filename='look4/' ~ template) }}?t={{ new_timestamp }}" class="card-img-top" alt="{{ template }}" style="cursor:pointer;" onclick="openMacroModal('{{ template }}')">
+              <div class="card-body">
+                <h5 class="card-title">{{ template }}</h5>
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-primary btn-sm" onclick="openMacroModal('{{ template }}')">Edit Macro</button>
+                  <a href="{{ url_for('delete_template', template_name=template) }}" class="btn btn-danger btn-sm" onclick="return confirm('Delete template {{ template }}?')">Delete Template</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <h4>No Matches Found</h4>
+  {% endif %}
+</div>
+
+<!-- All Template Images (Look4 Folder) -->
+<div class="mb-3">
+  <h4>All Template Images (Look4)</h4>
+  <div class="row">
+    {% for tpl in templates %}
+      <div class="col-md-3">
+        <div class="card mb-3">
+          <img src="{{ url_for('mapped_image', filename='look4/' ~ tpl) }}?t={{ new_timestamp }}" class="card-img-top" alt="{{ tpl }}" style="cursor:pointer;" onclick="openMacroModal('{{ tpl }}')">
+          <div class="card-body">
+            <h5 class="card-title">{{ tpl }}</h5>
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openMacroModal('{{ tpl }}')">Edit Macro</button>
+              <a href="{{ url_for('delete_template', template_name=tpl) }}" class="btn btn-danger btn-sm" onclick="return confirm('Delete template {{ tpl }}?')">Delete Template</a>
+            </div>
+          </div>
+        </div>
+      </div>
     {% endfor %}
-  </ul>
-{% endif %}
+  </div>
+</div>
 
-<!-- Modal for cropping a template from the screenshot -->
+<!-- Cropping Modal for Template Creation -->
 <div class="modal fade" id="templateModal" tabindex="-1" role="dialog" aria-labelledby="templateModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <form id="cropTemplateForm" method="POST" action="{{ url_for('crop_template') }}">
@@ -52,8 +108,7 @@
           </button>
         </div>
         <div class="modal-body">
-          <p>Click and drag on the screenshot to select the area for your template.</p>
-          <!-- Display the screenshot in a canvas so you can capture coordinates -->
+          <p>Drag to select an area from the screenshot to use as a template.</p>
           <canvas id="cropCanvas" style="border:1px solid #ccc; width:100%; max-width:600px;"></canvas>
           <input type="hidden" name="x" id="cropX">
           <input type="hidden" name="y" id="cropY">
@@ -73,67 +128,169 @@
   </div>
 </div>
 
+<!-- Macro Modal for Editing Template Macro Commands -->
+<div class="modal fade" id="macroModal" tabindex="-1" role="dialog" aria-labelledby="macroModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <form id="cvMacroForm" method="POST" action="{{ url_for('run_cv_macro') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="macroModalLabel">Edit Macro for Template: <span id="macroTemplateName"></span></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeMacroModal()">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="template_name" id="cvMacroTemplateName">
+          <div class="form-group">
+            <label>Macro Commands:</label>
+            <textarea name="macro_commands" id="cvMacroCommands" class="form-control" rows="5" placeholder="Enter ADB commands, one per line"></textarea>
+          </div>
+          <p>After clicking "Run Macro", the commands will be executed once and a new screenshot will be captured.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Run Macro</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeMacroModal()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
+<!-- Hidden form for running macros if needed -->
+<form id="macroForm" method="POST" action="{{ url_for('run_macro') }}">
+  <input type="hidden" name="macro_name" id="macroNameInput">
+</form>
+
 <script>
-  // When the screenshot is clicked, open the cropping modal and load the screenshot into a canvas.
-  document.getElementById("cvScreenshot") && document.getElementById("cvScreenshot").addEventListener("click", function(){
-    var img = this;
-    var canvas = document.getElementById("cropCanvas");
-    var ctx = canvas.getContext("2d");
-    // Create an offscreen image to get natural dimensions
-    var offImg = new Image();
-    offImg.src = img.src.split('?')[0];
-    offImg.onload = function(){
-      // Set canvas size to natural size (or scaled to a maximum width for usability)
-      var maxWidth = 600;
-      var scale = offImg.naturalWidth > maxWidth ? maxWidth / offImg.naturalWidth : 1;
-      canvas.width = offImg.naturalWidth * scale;
-      canvas.height = offImg.naturalHeight * scale;
-      ctx.drawImage(offImg, 0, 0, canvas.width, canvas.height);
-      // Initialize variables for cropping
-      let startX, startY, isDrawing = false;
-      canvas.onmousedown = function(e) {
-        var rect = canvas.getBoundingClientRect();
-        startX = e.clientX - rect.left;
-        startY = e.clientY - rect.top;
-        isDrawing = true;
-      };
-      canvas.onmousemove = function(e) {
-        if (!isDrawing) return;
-        var rect = canvas.getBoundingClientRect();
-        var mouseX = e.clientX - rect.left;
-        var mouseY = e.clientY - rect.top;
-        var width = mouseX - startX;
-        var height = mouseY - startY;
-        // Redraw image and the rectangle overlay
+  // Function to set CV mode via URL parameter.
+  function setCVMode(mode) {
+    console.log("Set CV mode to:", mode);
+    window.location.href = "{{ url_for('cv_tab') }}" + "?mode=" + mode;
+  }
+
+  // Function to update the screenshot and (via AJAX) the matched templates.
+  function updateCV() {
+    fetch("{{ url_for('cv_matches') }}")
+      .then(response => response.json())
+      .then(data => {
+        if(data.latest) {
+          let img = document.getElementById("cvScreenshot");
+          if(img) {
+            img.src = "{{ url_for('mapped_image', filename='') }}" + data.latest + "?t=" + new Date().getTime();
+          }
+          // Update the matched templates section
+          let matches = data.matches;
+          let html = "";
+          if(Object.keys(matches).length > 0) {
+            html += '<h4>Matched Templates</h4><div class="row">';
+            for (let tpl in matches) {
+              if(matches[tpl]) {
+                html += `<div class="col-md-3">
+                          <div class="card mb-3">
+                            <img src="{{ url_for('mapped_image', filename='look4/') }}${tpl}?t=` + new Date().getTime() + `" class="card-img-top" alt="${tpl}" style="cursor:pointer;" onclick="openMacroModal('${tpl}')">
+                            <div class="card-body">
+                              <h5 class="card-title">${tpl}</h5>
+                              <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openMacroModal('${tpl}')">Edit Macro</button>
+                                <a href="{{ url_for('delete_template', template_name='') }}${tpl}" class="btn btn-danger btn-sm" onclick="return confirm('Delete template ${tpl}?')">Delete Template</a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>`;
+              }
+            }
+            html += "</div>";
+          } else {
+            html = "<h4>No Matches Found</h4>";
+          }
+          document.getElementById("matchedTemplatesSection").innerHTML = html;
+        }
+      })
+      .catch(err => {
+        console.error("Error in updateCV:", err);
+      });
+  }
+
+  // Set auto-update based on CV mode.
+  var cvMode = {{ mode }};
+  if(cvMode == 1) {
+    // Active mode: update every 5000ms (5 sec)
+    setInterval(updateCV, 5000);
+  } else if(cvMode == 2) {
+    var updateInterval = parseInt(document.getElementById("updateInterval")?.value || "60") * 1000;
+    setInterval(updateCV, updateInterval);
+  }
+
+  // When the screenshot is clicked, open the cropping modal.
+  $(document).ready(function(){
+    $("#cvScreenshot").on("click", function(){
+      var img = this;
+      var canvas = document.getElementById("cropCanvas");
+      var ctx = canvas.getContext("2d");
+      var offImg = new Image();
+      offImg.src = img.src.split('?')[0];
+      offImg.onload = function(){
+        var maxWidth = 600;
+        var scale = offImg.naturalWidth > maxWidth ? maxWidth / offImg.naturalWidth : 1;
+        canvas.width = offImg.naturalWidth * scale;
+        canvas.height = offImg.naturalHeight * scale;
         ctx.drawImage(offImg, 0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(startX, startY, width, height);
+        
+        let startX, startY, isDrawing = false;
+        canvas.onmousedown = function(e) {
+          var rect = canvas.getBoundingClientRect();
+          startX = e.clientX - rect.left;
+          startY = e.clientY - rect.top;
+          isDrawing = true;
+        };
+        canvas.onmousemove = function(e) {
+          if (!isDrawing) return;
+          var rect = canvas.getBoundingClientRect();
+          var mouseX = e.clientX - rect.left;
+          var mouseY = e.clientY - rect.top;
+          var width = mouseX - startX;
+          var height = mouseY - startY;
+          ctx.drawImage(offImg, 0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(startX, startY, width, height);
+        };
+        canvas.onmouseup = function(e) {
+          isDrawing = false;
+          var rect = canvas.getBoundingClientRect();
+          var endX = e.clientX - rect.left;
+          var endY = e.clientY - rect.top;
+          var cropX = Math.round(startX / scale);
+          var cropY = Math.round(startY / scale);
+          var cropW = Math.round((endX - startX) / scale);
+          var cropH = Math.round((endY - startY) / scale);
+          document.getElementById("cropX").value = cropX;
+          document.getElementById("cropY").value = cropY;
+          document.getElementById("cropW").value = cropW;
+          document.getElementById("cropH").value = cropH;
+          console.log("Crop coordinates (original image):", cropX, cropY, cropW, cropH);
+        };
       };
-      canvas.onmouseup = function(e) {
-        isDrawing = false;
-        var rect = canvas.getBoundingClientRect();
-        var endX = e.clientX - rect.left;
-        var endY = e.clientY - rect.top;
-        var cropX = Math.round(startX / scale);
-        var cropY = Math.round(startY / scale);
-        var cropW = Math.round((endX - startX) / scale);
-        var cropH = Math.round((endY - startY) / scale);
-        document.getElementById("cropX").value = cropX;
-        document.getElementById("cropY").value = cropY;
-        document.getElementById("cropW").value = cropW;
-        document.getElementById("cropH").value = cropH;
-        console.log("Crop coordinates:", cropX, cropY, cropW, cropH);
-      };
-    };
-    $("#templateModal").modal("show");
+      $("#templateModal").modal("show");
+    });
   });
 
   function closeTemplateModal() {
     $("#templateModal").modal("hide");
+  }
+
+  function openMacroModal(template) {
+    console.log("Open Macro Modal for template:", template);
+    document.getElementById("macroTemplateName").innerText = template;
+    document.getElementById("cvMacroTemplateName").value = template;
+    $("#macroModal").modal("show");
+  }
+  
+  function closeMacroModal() {
+    $("#macroModal").modal("hide");
   }
 </script>
 {% endblock %}

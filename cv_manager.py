@@ -1,4 +1,3 @@
-# cv_manager.py
 import os
 import cv2
 import numpy as np
@@ -6,8 +5,7 @@ import logging
 from datetime import datetime
 from threading import Thread
 import time
-
-from adb_control import capture_screenshot  # assume this returns (filepath, result)
+from adb_control import capture_screenshot  # assumes returns (filepath, result)
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +14,8 @@ DATA_DIR = os.getcwd()
 LOOK4_DIR = os.path.join(DATA_DIR, "data", "mappedimages", "look4")
 os.makedirs(LOOK4_DIR, exist_ok=True)
 
-# Global CV mode
-# Mode 1: Active (1 sec screenshot interval)
-# Mode 2: Update (10 min–1 hr interval, configurable)
-# Mode 3: Off (no updates)
-current_mode = 3  # default mode is off
+# Global CV mode: 1 = Active (updates every 5 sec), 2 = Update (configurable), 3 = Off.
+current_mode = 3
 
 def set_mode(mode):
     global current_mode
@@ -34,7 +29,6 @@ def get_mode():
     return current_mode
 
 def start_active_mode(duration=10):
-    """Temporarily set active mode (mode 1) for 'duration' seconds then revert to update mode (mode 2)."""
     set_mode(1)
     def revert():
         time.sleep(duration)
@@ -42,9 +36,8 @@ def start_active_mode(duration=10):
     Thread(target=revert, daemon=True).start()
 
 def take_screenshot_cv():
-    """Call your adb_control function to take a screenshot and return its filename."""
     path, result = capture_screenshot()
-    if path:
+    if path and os.path.exists(path):
         logger.debug("CV module captured screenshot: %s", path)
         return path
     else:
@@ -52,16 +45,11 @@ def take_screenshot_cv():
         return None
 
 def match_templates(screenshot_path, threshold=0.8):
-    """
-    Loads the screenshot and compares it against each template in LOOK4_DIR.
-    Returns a dict: { template_filename: True/False } depending on whether match >= threshold.
-    """
     matches = {}
     screenshot = cv2.imread(screenshot_path, cv2.IMREAD_GRAYSCALE)
     if screenshot is None:
         logger.error("Cannot load screenshot for template matching: %s", screenshot_path)
         return matches
-
     for file in os.listdir(LOOK4_DIR):
         if file.lower().endswith(('.jpg', '.jpeg', '.png')):
             template_path = os.path.join(LOOK4_DIR, file)
@@ -77,16 +65,35 @@ def match_templates(screenshot_path, threshold=0.8):
     return matches
 
 def crop_template(image_path, x, y, w, h, new_name):
-    """
-    Crop the image from image_path at (x, y, width, height) (in original image coordinates)
-    and save it to LOOK4_DIR with new_name.
-    """
     image = cv2.imread(image_path)
     if image is None:
         logger.error("Cannot load image for cropping: %s", image_path)
         return None
+    if x < 0 or y < 0 or (x + w) > image.shape[1] or (y + h) > image.shape[0]:
+        logger.error("Crop coordinates out of bounds for image: %s", image_path)
+        return None
     cropped = image[y:y+h, x:x+w]
+    if cropped.size == 0:
+        logger.error("Cropped image is empty. Check your crop coordinates.")
+        return None
     new_file = os.path.join(LOOK4_DIR, new_name)
-    cv2.imwrite(new_file, cropped)
-    logger.info("Saved cropped template as: %s", new_file)
-    return new_file
+    if cv2.imwrite(new_file, cropped):
+        logger.info("Saved cropped template as: %s", new_file)
+        return new_file
+    else:
+        logger.error("Failed to write cropped image to file: %s", new_file)
+        return None
+
+def delete_template(template_name):
+    file_path = os.path.join(LOOK4_DIR, template_name)
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            logger.info("Deleted template: %s", file_path)
+            return True
+        except Exception as e:
+            logger.error("Error deleting template %s: %s", file_path, e)
+            return False
+    else:
+        logger.error("Template file not found for deletion: %s", file_path)
+        return False
